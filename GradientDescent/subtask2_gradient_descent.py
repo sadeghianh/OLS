@@ -5,320 +5,277 @@
 # Works in: Google Colab, Jupyter Notebook, local Python
 # ============================================================
 
-# numpy: numerical computing library — used for arrays, math, and MSE
+# numpy: numerical computing — used for arrays and gradient math
 import numpy as np
 
-# matplotlib.pyplot: plotting library — used to draw all three loss curves
+# matplotlib.pyplot: plotting library — used for all three subplots
 import matplotlib.pyplot as plt
 
-# ── Data (same as sub-task 1) ────────────────────────────────
+# ── Data ─────────────────────────────────────────────────────
 
-# x: predictor variable — the four x values from the assignment
+# x: predictor variable — four x values from the assignment
 x = np.array([1, 2, 3, 4], dtype=float)
 
-# y: target variable — the four y values we want to predict
+# y: target variable — four y values we want to predict
 y = np.array([2, 3, 5, 6], dtype=float)
 
-# n: total number of data points — used inside loops and gradient formulas
+# n: number of data points
 n = len(x)
 
-# ── Helper function: MSE ─────────────────────────────────────
+# ── Helper: MSE ──────────────────────────────────────────────
 
 def mse(b0, b1, x, y):
-    # Compute predicted values: ŷ = b0 + b1*x for every point at once
+    # y_hat: predicted values at current b0 and b1
     y_hat = b0 + b1 * x
-    # Return the mean of all squared residuals (actual minus predicted)²
+    # return mean of squared residuals
     return np.mean((y - y_hat) ** 2)
 
-# ── Main function: Gradient Descent ──────────────────────────
+# ── Gradient Descent on full regression ──────────────────────
 
 def gradient_descent(x, y, lr, n_iter, b0_init=0.0, b1_init=0.0):
-    # b0: intercept — start at b0_init (default 0.0)
+    # initialise intercept at b0_init
     b0 = b0_init
-
-    # b1: slope — start at b1_init (default 0.0)
+    # initialise slope at b1_init
     b1 = b1_init
-
-    # n: number of data points — used to scale the gradient correctly
+    # n: number of data points
     n = len(x)
-
-    # losses: empty list — will store MSE at every iteration for plotting
+    # losses: list to store MSE at every iteration
     losses = []
 
-    # Main loop: repeat the update rule n_iter times
+    # repeat the update rule n_iter times
     for _ in range(n_iter):
-
-        # y_hat: predicted values at current b0, b1
+        # compute current predictions
         y_hat = b0 + b1 * x
-
-        # residuals: difference between prediction and actual (ŷ - y)
+        # compute residuals: predicted minus actual
         residuals = y_hat - y
-
-        # grad_b0: gradient of MSE with respect to intercept b0
-        # formula: dMSE/db0 = (2/n) * Σ(ŷ - y)
+        # gradient of MSE w.r.t. intercept: (2/n)*Σ(ŷ-y)
         grad_b0 = (2 / n) * np.sum(residuals)
-
-        # grad_b1: gradient of MSE with respect to slope b1
-        # formula: dMSE/db1 = (2/n) * Σ(ŷ - y) * x
+        # gradient of MSE w.r.t. slope: (2/n)*Σ(ŷ-y)*x
         grad_b1 = (2 / n) * np.sum(residuals * x)
-
-        # update b0: move intercept one step in the downhill direction
-        # update rule: w_new = w_old - learning_rate * gradient
+        # update intercept: step downhill
         b0 = b0 - lr * grad_b0
-
-        # update b1: move slope one step in the downhill direction
+        # update slope: step downhill
         b1 = b1 - lr * grad_b1
-
-        # current_mse: compute MSE at the new b0, b1
+        # compute MSE at updated parameters
         current_mse = mse(b0, b1, x, y)
-
-        # stop early if MSE becomes NaN or explodes — learning rate too large
+        # stop early if diverged (NaN or explosion)
         if np.isnan(current_mse) or current_mse > 1e8:
-            # append NaN as a marker so the plot shows where it broke
             losses.append(float('nan'))
             break
-
-        # append current MSE to the log so we can plot the loss curve later
+        # log the current MSE
         losses.append(current_mse)
 
-    # return the final coefficients and the full loss history
+    # return final coefficients and full loss history
     return b0, b1, losses
 
-# ── Toy GD function: f(w) = (w-3)² ──────────────────────────
+# ── Toy GD: f(w) = (w-3)² ────────────────────────────────────
+# This is a simplified 1D function used ONLY to demonstrate
+# the three regimes: converge / oscillate / diverge.
+# It is NOT the regression formula — it is a teaching tool.
+# The true minimum is at w=3 where f(3)=0.
+# Gradient = df/dw = 2*(w-3)
+# Update:   w_new = w_old - lr * 2*(w-3) = (1-2*lr)*w + 6*lr
+# Per-step multiplier = |1-2*lr| — this decides the regime:
+#   |1-2*lr| < 1  →  converges
+#   |1-2*lr| = 1  →  oscillates (lr=1.0: w bounces 0,6,0,6)
+#   |1-2*lr| > 1  →  diverges
 
 def toy_gd(w_init, lr, n_iter):
-    # w: scalar weight — start at w_init
+    # initialise weight at w_init
     w = w_init
-
-    # losses: empty list — will store f(w) = (w-3)² at every step
-    losses = []
+    # w_history: store the w VALUE at each step (not f(w))
+    # showing w makes the oscillation between 0 and 6 clearly visible
+    w_history = []
 
     # loop for n_iter steps
     for _ in range(n_iter):
-
-        # grad: derivative of (w-3)² with respect to w = 2*(w-3)
+        # gradient of (w-3)² = 2*(w-3)
         grad = 2 * (w - 3)
-
-        # update w using the same rule: w_new = w_old - lr * gradient
+        # update: w_new = w_old - lr * gradient
         w = w - lr * grad
-
-        # val: function value at the new w
-        val = (w - 3) ** 2
-
-        # stop early if value blows up — diverged
-        if val > 1e6:
-            losses.append(float('nan'))
+        # stop if w explodes (diverged)
+        if abs(w) > 1e4:
+            w_history.append(float('nan'))
             break
+        # log the current w value
+        w_history.append(w)
 
-        # log the current function value
-        losses.append(val)
+    # return final w and trajectory
+    return w, w_history
 
-    # return final w and the full loss history
-    return w, losses
+# ── Run regression experiments ────────────────────────────────
 
-# ── Run experiment 1: good learning rate on full regression ──
+# experiment A: very slow rate — shows creeping behaviour
+lr_slow  = 0.001
+b0_slow,  b1_slow,  losses_slow  = gradient_descent(x, y, lr_slow,  2000)
 
-# lr_good: step size that works well on this 4-point dataset
-lr_good = 0.02
+# experiment B: good rate — converges cleanly
+lr_good  = 0.02
+b0_good,  b1_good,  losses_good  = gradient_descent(x, y, lr_good,  2000)
 
-# n_iter: 2000 steps is more than enough to converge
-n_iter = 2000
+# experiment C: too-large rate — oscillates or diverges
+lr_bad   = 0.11
+b0_bad,   b1_bad,   losses_bad   = gradient_descent(x, y, lr_bad,   300)
 
-# run gradient descent with the good learning rate
-b0_good, b1_good, losses_good = gradient_descent(x, y, lr_good, n_iter)
-
-# print the final intercept, slope, and MSE
+# print results for the good rate
 print("=" * 55)
-print(f"GRADIENT DESCENT — learning rate = {lr_good}")
+print(f"Good rate (lr={lr_good})")
 print("=" * 55)
-print(f"\n  Final β̂₀ = {b0_good:.4f}  (sub-task 1 OLS: 0.5000)")
-print(f"  Final β̂₁ = {b1_good:.4f}  (sub-task 1 OLS: 1.4000)")
-print(f"  Final MSE = {losses_good[-1]:.6f}")
+print(f"  β̂₀ = {b0_good:.4f}  (OLS: 0.5000)")
+print(f"  β̂₁ = {b1_good:.4f}  (OLS: 1.4000)")
+print(f"  MSE = {losses_good[-1]:.6f}")
 
-# ── Run experiment 2: too-large learning rate ─────────────────
+# ── Run toy experiments ───────────────────────────────────────
 
-# lr_bad: slightly above the convergence boundary → oscillates
-lr_bad = 0.11
-
-# run with the bad learning rate — only 300 steps to show the oscillation
-b0_bad, b1_bad, losses_bad = gradient_descent(x, y, lr_bad, 300)
-
-# print what happened with the bad rate
-print(f"\n{'='*55}")
-print(f"GRADIENT DESCENT — learning rate = {lr_bad} (too large)")
-print(f"{'='*55}")
-print(f"\n  Final β̂₀ = {b0_bad:.4f}")
-print(f"  Final β̂₁ = {b1_bad:.4f}")
-print(f"  Final MSE = {losses_bad[-1]:.4f}")
-print(f"  Loss oscillates — never settles cleanly!")
-
-# ── Run experiment 3: toy f(w)=(w-3)² with four rates ────────
-
-# toy_iters: only 30 steps — enough to clearly see each regime
+# toy_iters: 30 steps — enough to clearly see each regime
 toy_iters = 30
 
-# converges slowly: |1 - 2*0.3| = 0.4 < 1
-w_conv,  loss_conv  = toy_gd(0.0, lr=0.3,  n_iter=toy_iters)
+# converges slowly: |1-2*0.3| = 0.4
+w_conv, wh_conv = toy_gd(0.0, lr=0.3,  n_iter=toy_iters)
 
-# converges very fast: |1 - 2*0.49| ≈ 0
-w_fast,  loss_fast  = toy_gd(0.0, lr=0.49, n_iter=toy_iters)
+# converges fast: |1-2*0.49| ≈ 0.02
+w_fast, wh_fast = toy_gd(0.0, lr=0.49, n_iter=toy_iters)
 
-# bounded oscillation: |1 - 2*1.0| = 1 → weights bounce 0, 6, 0, 6 forever
-w_osc,   loss_osc   = toy_gd(0.0, lr=1.0,  n_iter=toy_iters)
+# bounded oscillation: |1-2*1.0| = 1.0 — w bounces 0, 6, 0, 6 exactly
+w_osc,  wh_osc  = toy_gd(0.0, lr=1.0,  n_iter=toy_iters)
 
-# diverges: |1 - 2*1.2| = 1.4 > 1 → loss grows without bound
-w_div,   loss_div   = toy_gd(0.0, lr=1.2,  n_iter=toy_iters)
+# diverges: |1-2*1.2| = 1.4 > 1 — w grows without bound
+w_div,  wh_div  = toy_gd(0.0, lr=1.2,  n_iter=toy_iters)
 
 # ── Plotting ──────────────────────────────────────────────────
 
-# create a figure with three side-by-side subplots
-fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+# create three subplots side by side
+fig, axes = plt.subplots(1, 3, figsize=(16, 5))
 
-# ── Subplot 1: good rate loss curve ──────────────────────────
-
-# ax: alias for first subplot
+# ── Plot 1: three learning rates on regression ────────────────
 ax = axes[0]
 
-# plot MSE vs iteration for the good learning rate
-ax.plot(range(len(losses_good)), losses_good, 'b-', lw=2,
-        label=f'lr={lr_good}')
+# plot slow rate in gray — stays high for a long time (creeping)
+ax.plot(range(len(losses_slow)), losses_slow, color='gray', lw=2,
+        label=f'lr={lr_slow} (creeping — too slow)', alpha=0.8)
 
-# add a horizontal dashed line at the final (converged) MSE value
+# plot good rate in blue — drops steeply then flattens
+ax.plot(range(len(losses_good)), losses_good, 'b-', lw=2.5,
+        label=f'lr={lr_good} (good — converges)')
+
+# collect only valid non-NaN values from bad rate
+valid_bad = [(i, v) for i, v in enumerate(losses_bad) if not np.isnan(v)]
+if valid_bad:
+    idx_b, val_b = zip(*valid_bad)
+    # plot bad rate in red — shows spike then instability
+    ax.plot(idx_b, val_b, 'r-', lw=2,
+            label=f'lr={lr_bad} (too large — oscillates)')
+
+# mark the converged MSE value with a horizontal dashed line
 ax.axhline(losses_good[-1], color='green', ls='--', lw=1.5,
-           label=f'Final MSE={losses_good[-1]:.4f}')
+           label=f'OLS MSE = {losses_good[-1]:.4f}')
 
-# label the x-axis
+# axis labels and title
 ax.set_xlabel('Iteration', fontsize=11)
-
-# label the y-axis
 ax.set_ylabel('MSE', fontsize=11)
-
-# set the subplot title
-ax.set_title(f'Good rate (lr={lr_good})\nConverges to OLS solution',
+ax.set_title('Three Learning Rates\nSlow / Good / Too-large',
              fontweight='bold', fontsize=11)
-
-# add legend in the upper right
-ax.legend(fontsize=9)
-
-# add a light grid for readability
+ax.legend(fontsize=8)
 ax.grid(alpha=0.3)
 
-# annotate the final coefficient values on the plot
+# annotate final coefficients
 ax.text(0.98, 0.95,
         f'β̂₀={b0_good:.4f}\nβ̂₁={b1_good:.4f}',
         transform=ax.transAxes, ha='right', va='top',
-        fontsize=10, color='green',
+        fontsize=10, color='blue',
         bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
-# ── Subplot 2: good vs bad rate ───────────────────────────────
+# zoom in on first 500 iterations so the differences are visible
+ax.set_xlim(0, 500)
 
-# ax2: alias for second subplot
+# ── Plot 2: zoom on convergence tail ─────────────────────────
 ax2 = axes[1]
 
-# plot good rate loss curve in blue
-ax2.plot(range(len(losses_good)), losses_good, 'b-', lw=2,
-         label=f'lr={lr_good} (converges)')
+# plot slow rate — still falling slowly at iteration 500-2000
+ax2.plot(range(len(losses_slow)), losses_slow, color='gray', lw=2,
+         label=f'lr={lr_slow} (still creeping)', alpha=0.8)
 
-# keep only valid (non-NaN) values from the bad rate run before plotting
-valid_bad = [(i, v) for i, v in enumerate(losses_bad) if not np.isnan(v)]
+# plot good rate — already flat (converged)
+ax2.plot(range(len(losses_good)), losses_good, 'b-', lw=2.5,
+         label=f'lr={lr_good} (converged)')
 
-# only draw the bad rate line if we have any valid points
-if valid_bad:
-    # unpack list of (index, value) tuples into two separate sequences
-    idx_b, val_b = zip(*valid_bad)
-    # plot the bad rate loss in red
-    ax2.plot(idx_b, val_b, 'r-', lw=2,
-             label=f'lr={lr_bad} (oscillates)')
+# horizontal reference line at OLS MSE
+ax2.axhline(losses_good[-1], color='green', ls='--', lw=1.5,
+            label=f'OLS minimum = {losses_good[-1]:.4f}')
 
-# label the x-axis
+# axis labels and title
 ax2.set_xlabel('Iteration', fontsize=11)
-
-# label the y-axis
 ax2.set_ylabel('MSE', fontsize=11)
-
-# set the subplot title
-ax2.set_title('Good rate vs Too-large rate\nFull regression',
+ax2.set_title('Zoom: Slow vs Good rate\nSlow is still falling at iteration 2000!',
               fontweight='bold', fontsize=11)
-
-# add legend
 ax2.legend(fontsize=9)
-
-# add grid
 ax2.grid(alpha=0.3)
 
-# force y-axis to start at 0 so the scale is honest
-ax2.set_ylim(bottom=0)
+# set y limit to show the gap between slow and good clearly
+ax2.set_ylim(0, 1.0)
 
-# ── Subplot 3: toy f(w)=(w-3)² ────────────────────────────────
-
-# ax3: alias for third subplot
+# ── Plot 3: toy f(w)=(w-3)² — showing w trajectory ───────────
 ax3 = axes[2]
 
-# plot converging-slow rate in blue
-ax3.plot(range(toy_iters), loss_conv, 'b-o', ms=4, lw=1.5,
-         label='lr=0.3 (converges, slow)')
+# add horizontal reference line at w=3 (the true minimum)
+ax3.axhline(3, color='black', lw=1.5, ls='--', label='True minimum w=3')
 
-# plot converging-fast rate in green
-ax3.plot(range(toy_iters), loss_fast, 'g-o', ms=4, lw=1.5,
-         label='lr=0.49 (converges, fast)')
+# plot converging-slow trajectory in blue
+ax3.plot(range(len(wh_conv)), wh_conv, 'b-o', ms=5, lw=2,
+         label='lr=0.3 (converges slowly toward 3)')
 
-# plot oscillating rate in orange
-ax3.plot(range(toy_iters), loss_osc, color='orange', marker='o',
-         ms=4, lw=1.5, label='lr=1.0 (oscillates: 0,6,0,6)')
+# plot converging-fast trajectory in green
+ax3.plot(range(len(wh_fast)), wh_fast, 'g-o', ms=5, lw=2,
+         label='lr=0.49 (reaches 3 in ~2 steps)')
 
-# keep only valid values from the diverging run
-valid_div = [(i, v) for i, v in enumerate(loss_div) if not np.isnan(v)]
+# plot oscillating trajectory in orange — bounces between 0 and 6
+ax3.plot(range(len(wh_osc)), wh_osc, color='orange', marker='o',
+         ms=5, lw=2, label='lr=1.0 (oscillates: 0 → 6 → 0 → 6)')
 
-# only draw the diverging line if we have valid points
+# collect valid values from diverging trajectory
+valid_div = [(i, v) for i, v in enumerate(wh_div) if not np.isnan(v)]
 if valid_div:
-    # unpack into index and value sequences
     idx_d, val_d = zip(*valid_div)
-    # plot diverging rate in red
-    ax3.plot(idx_d, val_d, 'r-o', ms=4, lw=1.5,
-             label='lr=1.2 (diverges)')
+    # plot diverging trajectory in red — shoots away from 3
+    ax3.plot(idx_d, val_d, 'r-o', ms=5, lw=2,
+             label='lr=1.2 (diverges — w flies away)')
 
-# add a dotted horizontal line at 0 — the true minimum
-ax3.axhline(0, color='black', lw=0.8, ls=':')
-
-# label the x-axis
+# axis labels and title
 ax3.set_xlabel('Iteration', fontsize=11)
-
-# label the y-axis
-ax3.set_ylabel('f(w) = (w-3)²', fontsize=11)
-
-# set the subplot title
-ax3.set_title('Toy f(w)=(w-3)²\nFour learning rate regimes',
+ax3.set_ylabel('w (weight value)', fontsize=11)
+ax3.set_title('Toy f(w)=(w-3)²: w trajectory\nOscillation now clearly visible!',
               fontweight='bold', fontsize=11)
-
-# add legend
 ax3.legend(fontsize=8)
-
-# add grid
 ax3.grid(alpha=0.3)
 
-# fix y-axis range so the oscillating line is clearly visible
-ax3.set_ylim(-0.5, 20)
+# fix y range so oscillation between 0 and 6 is clearly visible
+ax3.set_ylim(-2, 10)
+
+# add annotation explaining the oscillation
+ax3.annotate('bounces between\n0 and 6 forever!',
+             xy=(5, 0), xytext=(12, 2),
+             fontsize=9, color='darkorange', fontweight='bold',
+             arrowprops=dict(arrowstyle='->', color='darkorange'))
 
 # ── Figure-level settings ─────────────────────────────────────
 
-# add a main title spanning all three subplots
+# add overall title
 plt.suptitle(
     'Sub-task 2: Gradient Descent on the MSE Bowl\n'
-    'The learning rate controls how large a step the parameters take at each iteration.',
-    fontsize=12, fontweight='bold', color='#1F4E79')
+    'The learning rate controls the step size — too small: creeps, '
+    'too large: oscillates or diverges.',
+    fontsize=11, fontweight='bold', color='#1F4E79')
 
-# adjust spacing so subplots do not overlap each other
+# adjust spacing
 plt.tight_layout()
 
-# save the figure to a file in the current working directory
+# save the figure — path is relative so it works in Colab too
 plt.savefig('gradient_descent.png', dpi=160, bbox_inches='tight')
 
-# display the plot inline — required for Colab to show it in the notebook
+# display inline — required for Colab
 plt.show()
 
-# ── Final summary ─────────────────────────────────────────────
-
-# print a table comparing GD result with the OLS result from sub-task 1
+# ── Summary ───────────────────────────────────────────────────
 print("\n" + "=" * 55)
 print("SUMMARY")
 print("=" * 55)
@@ -326,8 +283,6 @@ print(f"\n  {'':20} {'β̂₀':>10} {'β̂₁':>10}")
 print(f"  {'Sub-task 1 (OLS)':20} {'0.5000':>10} {'1.4000':>10}")
 print(f"  {'GD lr=0.02':20} {b0_good:>10.4f} {b1_good:>10.4f}")
 print(f"\n  Both methods reach the same coefficients ✓")
-
-# print the one-sentence learning rate interpretation required by the assignment
 print(f"""
   Learning rate interpretation:
   The learning rate controls how large a step the parameters
